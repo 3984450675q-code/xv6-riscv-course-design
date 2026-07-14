@@ -78,6 +78,16 @@ usertrap(void)
     setkilled(p);
   }
 
+  if (which_dev == 2 && p->alarm_interval > 0 && !p->alarm_active) {
+    p->alarm_ticks++;
+    if (p->alarm_ticks >= p->alarm_interval) {
+      memmove(&p->alarm_trapframe, p->trapframe, sizeof(*p->trapframe));
+      p->alarm_ticks = 0;
+      p->alarm_active = 1;
+      p->trapframe->epc = p->alarm_handler;
+    }
+  }
+
   if (killed(p))
     kexit(-1);
 

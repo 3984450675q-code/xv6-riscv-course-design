@@ -29,6 +29,8 @@ int sync(void);
 int trace(int);
 int sysinfo(struct sysinfo *);
 int pgaccess(void *, int, uint64 *);
+int sigalarm(int, void (*)());
+int sigreturn(void);
 
 // ulib.c
 int stat(const char *, struct stat *);
@@ -45,6 +47,7 @@ void *memcpy(void *, const void *, uint);
 char *sbrk(int);
 char *sbrklazy(int);
 int ugetpid(void);
+int sleep(int);
 
 // printf.c
 void fprintf(int, const char *, ...) __attribute__((format(printf, 2, 3)));

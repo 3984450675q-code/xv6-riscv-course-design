@@ -145,6 +145,9 @@ UPROGS=\
 	$U/_trace\
 	$U/_sysinfotest\
 	$U/_pgtbltest\
+	$U/_call\
+	$U/_bttest\
+	$U/_alarmtest\
 	$U/_stressfs\
 	$U/_usertests\
 	$U/_grind\

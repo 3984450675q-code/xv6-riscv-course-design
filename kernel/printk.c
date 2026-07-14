@@ -135,11 +135,30 @@ printk(char *fmt, ...)
 }
 
 void
+backtrace(void)
+{
+  uint64 fp = r_fp();
+  uint64 stack_bottom = PGROUNDDOWN(fp);
+  uint64 stack_top = PGROUNDUP(fp);
+
+  printk("backtrace:\n");
+  while (fp >= stack_bottom + 16 && fp < stack_top) {
+    uint64 ra = *(uint64 *)(fp - 8);
+    uint64 previous_fp = *(uint64 *)(fp - 16);
+    printk("%p\n", (void *)ra);
+    if (previous_fp <= fp || previous_fp >= stack_top)
+      break;
+    fp = previous_fp;
+  }
+}
+
+void
 panic(char *s)
 {
   panicking = 1;
   printk("panic: ");
   printk("%s\n", s);
+  backtrace();
   panicked = 1; // freeze uart output from other CPUs
   for (;;)
     ;

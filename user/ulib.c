@@ -168,3 +168,9 @@ ugetpid(void)
   struct usyscall *u = (struct usyscall *)USYSCALL;
   return u->pid;
 }
+
+int
+sleep(int ticks)
+{
+  return pause(ticks);
+}

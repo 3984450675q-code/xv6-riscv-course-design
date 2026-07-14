@@ -102,5 +102,10 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   int trace_mask;              // System calls to trace
+  int alarm_interval;          // Timer ticks between handler calls
+  int alarm_ticks;             // Timer ticks since the last alarm
+  uint64 alarm_handler;        // User alarm handler address
+  int alarm_active;            // Alarm handler is currently running
+  struct trapframe alarm_trapframe; // User state saved at alarm delivery
   char name[16];               // Process name (debugging)
 };

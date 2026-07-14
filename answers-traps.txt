@@ -1,0 +1,26 @@
+RISC-V assembly answers
+=======================
+
+1. Function arguments are passed in registers a0 through a7. In main's call
+   to printf, a0 contains the format-string address, a1 contains 12, and a2
+   contains 13.
+
+2. There is no call to f or g in main. The compiler inlined both functions
+   and directly loaded f(8) + 1, which is 12, into a1.
+
+3. In this build, printf is located at address 0x750.
+
+4. The call to printf is the jal instruction at 0x30. Immediately after the
+   call, ra contains 0x34, the address of the next instruction.
+
+5. The code prints:
+
+       He110 World
+
+   RISC-V is little-endian, so i is stored as bytes 72 6c 64 00, which form
+   the string "rld". On a big-endian machine, i should be 0x726c6400 to keep
+   the same byte sequence in memory. The value 57616 does not need to change.
+
+6. The value printed after "y=" is unpredictable. printf expects a second
+   integer argument in a2, but the caller supplies only the value 3 in a1.
+   printf therefore reads whatever stale value happens to be in a2.
