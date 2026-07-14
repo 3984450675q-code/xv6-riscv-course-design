@@ -45,3 +45,4 @@ entry("uptime");
 entry("sync");
 entry("trace");
 entry("sysinfo");
+entry("pgaccess");

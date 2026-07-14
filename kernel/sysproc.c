@@ -58,7 +58,7 @@ sys_sbrk(void)
     // memory, vmfault() will allocate it.
     if (addr + n < addr)
       return -1;
-    if (addr + n > TRAPFRAME)
+    if (addr + n > USYSCALL)
       return -1;
     myproc()->sz += n;
   }
@@ -116,6 +116,46 @@ sys_trace(void)
 
   argint(0, &mask);
   myproc()->trace_mask = mask;
+  return 0;
+}
+
+#define MAX_PGACCESS_PAGES 64
+
+uint64
+sys_pgaccess(void)
+{
+  uint64 start;
+  uint64 user_mask;
+  uint64 mask = 0;
+  int npages;
+  int cleared = 0;
+  struct proc *p = myproc();
+
+  argaddr(0, &start);
+  argint(1, &npages);
+  argaddr(2, &user_mask);
+
+  if (npages < 0 || npages > MAX_PGACCESS_PAGES)
+    return -1;
+  if (start >= MAXVA || start + (uint64)npages * PGSIZE < start ||
+      start + (uint64)npages * PGSIZE > MAXVA)
+    return -1;
+
+  for (int i = 0; i < npages; i++) {
+    pte_t *pte = walk(p->pagetable, start + (uint64)i * PGSIZE, 0);
+    if (pte == 0 || (*pte & (PTE_V | PTE_U)) != (PTE_V | PTE_U))
+      continue;
+    if (*pte & PTE_A) {
+      mask |= 1ULL << i;
+      *pte &= ~PTE_A;
+      cleared = 1;
+    }
+  }
+
+  if (cleared)
+    sfence_vma();
+  if (copyout(p->pagetable, user_mask, (char *)&mask, sizeof(mask)) < 0)
+    return -1;
   return 0;
 }
 

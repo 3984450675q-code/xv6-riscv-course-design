@@ -2,6 +2,7 @@
 #include "kernel/stat.h"
 #include "kernel/fcntl.h"
 #include "kernel/riscv.h"
+#include "kernel/memlayout.h"
 #include "kernel/vm.h"
 #include "user/user.h"
 
@@ -159,4 +160,11 @@ char *
 sbrklazy(int n)
 {
   return sys_sbrk(n, SBRK_LAZY);
+}
+
+int
+ugetpid(void)
+{
+  struct usyscall *u = (struct usyscall *)USYSCALL;
+  return u->pid;
 }
