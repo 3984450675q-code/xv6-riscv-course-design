@@ -314,19 +314,53 @@ uvmfree(pagetable_t pagetable, uint64 sz)
   freewalk(pagetable);
 }
 
+// Resolve a write to a copy-on-write page.
+// Returns the writable physical page address, or zero on failure.
+static uint64
+cowfault(pagetable_t pagetable, uint64 va)
+{
+  pte_t *pte;
+  uint64 pa, mem;
+  uint flags;
+
+  va = PGROUNDDOWN(va);
+  if (va >= MAXVA)
+    return 0;
+  pte = walk(pagetable, va, 0);
+  if (pte == 0 || (*pte & (PTE_V | PTE_U | PTE_COW)) !=
+                    (PTE_V | PTE_U | PTE_COW))
+    return 0;
+
+  pa = PTE2PA(*pte);
+  if (krefcnt((void *)pa) == 1) {
+    *pte = (*pte | PTE_W) & ~PTE_COW;
+    sfence_vma();
+    return pa;
+  }
+
+  mem = (uint64)kalloc();
+  if (mem == 0)
+    return 0;
+  memmove((void *)mem, (void *)pa, PGSIZE);
+  flags = (PTE_FLAGS(*pte) | PTE_W) & ~PTE_COW;
+  *pte = PA2PTE(mem) | flags;
+  sfence_vma();
+  kfree((void *)pa);
+  return mem;
+}
+
 // Given a parent process's page table, copy
 // its memory into a child's page table.
-// Copies both the page table and the
-// physical memory.
+// Writable pages are shared as copy-on-write mappings.
 // returns 0 on success, -1 on failure.
-// frees any allocated pages on failure.
+// drops any child references on failure.
 int
 uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
+  int changed = 0;
 
   for (i = 0; i < sz; i += PGSIZE) {
     if ((pte = walk(old, i, 0)) == 0)
@@ -335,17 +369,22 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       continue; // physical page hasn't been allocated
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-    if ((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char *)pa, PGSIZE);
-    if (mappages(new, i, PGSIZE, (uint64)mem, flags) != 0) {
-      kfree(mem);
-      goto err;
+    if (flags & PTE_W) {
+      flags = (flags & ~PTE_W) | PTE_COW;
+      *pte = PA2PTE(pa) | flags;
+      changed = 1;
     }
+    if (mappages(new, i, PGSIZE, pa, flags) != 0)
+      goto err;
+    kaddref((void *)pa);
   }
+  if (changed)
+    sfence_vma();
   return 0;
 
 err:
+  if (changed)
+    sfence_vma();
   uvmunmap(new, 0, i / PGSIZE, 1);
   return -1;
 }
@@ -385,9 +424,11 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     }
 
     pte = walk(pagetable, va0, 0);
-    // forbid copyout over read-only user text pages.
-    if ((*pte & PTE_W) == 0)
-      return -1;
+    if ((*pte & PTE_W) == 0) {
+      if ((*pte & PTE_COW) == 0 ||
+          (pa0 = cowfault(pagetable, va0)) == 0)
+        return -1;
+    }
 
     n = PGSIZE - (dstva - va0);
     if (n > len)
@@ -486,6 +527,8 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
     return 0;
   va = PGROUNDDOWN(va);
   if (ismapped(pagetable, va)) {
+    if (!read)
+      return cowfault(pagetable, va);
     return 0;
   }
   mem = (uint64)kalloc();

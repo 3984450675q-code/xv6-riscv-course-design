@@ -2682,10 +2682,10 @@ lazy_copy(char *s)
     }
   }
 
-  // read() and write() to these addresses should fail.
+  // read() and write() to these unmapped or kernel-only addresses should fail.
+  // USYSCALL is intentionally omitted because it is user-readable.
   unsigned long bad[] = {
-    0x3fffffc000, 0x3fffffd000, 0x3fffffe000,
-    0x3ffffff000, 0x4000000000, 0x8000000000,
+    USYSCALL - PGSIZE, TRAPFRAME, TRAMPOLINE, MAXVA, 2 * MAXVA,
   };
   for (int i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
     int fd = open("README", 0);
@@ -2710,6 +2710,30 @@ lazy_copy(char *s)
     close(fd);
   }
 
+  // The shared USYSCALL page is a valid copyin source, but copyout must
+  // reject it because user code is not allowed to write that page.
+  int fd = open("junk", O_CREATE | O_RDWR | O_TRUNC);
+  if (fd < 0) {
+    printf("cannot open junk\n");
+    exit(1);
+  }
+  if (write(fd, (char *)USYSCALL, sizeof(struct usyscall)) !=
+      sizeof(struct usyscall)) {
+    printf("write from USYSCALL failed\n");
+    exit(1);
+  }
+  close(fd);
+  fd = open("README", 0);
+  if (fd < 0) {
+    printf("cannot open README\n");
+    exit(1);
+  }
+  if (read(fd, (char *)USYSCALL, sizeof(struct usyscall)) >= 0) {
+    printf("read into USYSCALL succeeded\n");
+    exit(1);
+  }
+  close(fd);
+
   exit(0);
 }
 
@@ -2728,7 +2752,7 @@ lazy_sbrk(char *s)
     p = sbrklazy(0);
   }
 
-  int n = TRAPFRAME - PGSIZE - (uint64)p;
+  int n = USYSCALL - PGSIZE - (uint64)p;
 
   char *p1 = sbrklazy(n);
   if (p1 < 0 || p1 != p) {
@@ -2737,8 +2761,8 @@ lazy_sbrk(char *s)
   }
 
   p = sbrk(PGSIZE);
-  if (p < 0 || (uint64)p != TRAPFRAME - PGSIZE) {
-    printf("sbrk(%d) returned %p, not expected TRAPFRAME-PGSIZE\n", PGSIZE, p);
+  if (p < 0 || (uint64)p != USYSCALL - PGSIZE) {
+    printf("sbrk(%d) returned %p, not expected USYSCALL-PGSIZE\n", PGSIZE, p);
     exit(1);
   }
 

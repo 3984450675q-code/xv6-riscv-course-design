@@ -60,6 +60,8 @@ void            ireclaim(int);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+void            kaddref(void *);
+int             krefcnt(void *);
 uint64          kfreemem(void);
 
 // log.c

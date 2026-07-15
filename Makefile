@@ -148,6 +148,7 @@ UPROGS=\
 	$U/_call\
 	$U/_bttest\
 	$U/_alarmtest\
+	$U/_cowtest\
 	$U/_stressfs\
 	$U/_usertests\
 	$U/_grind\
