@@ -1,0 +1,12 @@
+Hash-table race explanation
+
+Suppose two threads insert different keys that hash to the same bucket. Both
+threads read the same old bucket head and both searches conclude that their key
+is absent. Thread 1 allocates entry A and stores A in table[i]. Thread 2 then
+allocates entry B using the same old head and stores B in table[i]. Entry A is
+no longer reachable, so a later get reports that key as missing.
+
+The fix is to associate one mutex with each bucket and hold that bucket's mutex
+across the complete lookup/update/insert operation. Inserts into the same bucket
+are serialized, while inserts into different buckets can still run in parallel.
+get() uses the same bucket mutex so its traversal is synchronized with updates.

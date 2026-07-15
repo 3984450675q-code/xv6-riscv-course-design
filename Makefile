@@ -116,6 +116,20 @@ $U/_forktest: $U/forktest.o $(ULIB)
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o
 	$(OBJDUMP) -S $U/_forktest > $U/forktest.asm
 
+$U/uthread_switch.o: $U/uthread_switch.S
+	$(CC) $(CFLAGS) -c -o $U/uthread_switch.o $U/uthread_switch.S
+
+$U/_uthread: $U/uthread.o $U/uthread_switch.o $(ULIB)
+	$(LD) $(LDFLAGS) -T $U/user.ld -o $U/_uthread $U/uthread.o $U/uthread_switch.o $(ULIB)
+	$(OBJDUMP) -S $U/_uthread > $U/uthread.asm
+	$(OBJDUMP) -t $U/_uthread | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/uthread.sym
+
+ph: notxv6/ph.c
+	gcc -o ph -g -O2 notxv6/ph.c -pthread
+
+barrier: notxv6/barrier.c
+	gcc -o barrier -g -O2 notxv6/barrier.c -pthread
+
 mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 	gcc -Wno-unknown-attributes -I. -o mkfs/mkfs mkfs/mkfs.c
 
@@ -149,6 +163,7 @@ UPROGS=\
 	$U/_bttest\
 	$U/_alarmtest\
 	$U/_cowtest\
+	$U/_uthread\
 	$U/_stressfs\
 	$U/_usertests\
 	$U/_grind\
@@ -168,7 +183,7 @@ clean:
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*/*.o */*.d */*.asm */*.sym \
 	$K/kernel fs.img \
-	mkfs/mkfs .gdbinit \
+	mkfs/mkfs .gdbinit ph barrier \
         $U/usys.S \
 	$(UPROGS)
 
