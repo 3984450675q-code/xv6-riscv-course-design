@@ -1,6 +1,9 @@
 K=kernel
 U=user
 
+SERVERPORT = $(shell expr $$(id -u) % 5000 + 25099)
+FWDPORT = $(shell expr $$(id -u) % 5000 + 25999)
+
 OBJS = \
   $K/entry.o \
   $K/start.o \
@@ -28,7 +31,11 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o \
+  $K/net.o \
+  $K/e1000.o \
+  $K/sysnet.o \
+  $K/pci.o
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -74,6 +81,7 @@ CFLAGS += -fno-builtin-free
 CFLAGS += -fno-builtin-memcpy -Wno-main
 CFLAGS += -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf
 CFLAGS += -I.
+CFLAGS += -DNET_TESTS_PORT=$(SERVERPORT)
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
@@ -164,6 +172,7 @@ UPROGS=\
 	$U/_alarmtest\
 	$U/_cowtest\
 	$U/_uthread\
+	$U/_nettests\
 	$U/_stressfs\
 	$U/_usertests\
 	$U/_grind\
@@ -183,7 +192,7 @@ clean:
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*/*.o */*.d */*.asm */*.sym \
 	$K/kernel fs.img \
-	mkfs/mkfs .gdbinit ph barrier \
+	mkfs/mkfs .gdbinit ph barrier packets.pcap \
         $U/usys.S \
 	$(UPROGS)
 
@@ -201,6 +210,15 @@ QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nogr
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+QEMUOPTS += -netdev user,id=net0,hostfwd=udp::$(FWDPORT)-:2000
+QEMUOPTS += -object filter-dump,id=netdump,netdev=net0,file=packets.pcap
+QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
+
+server:
+	python3 server.py $(SERVERPORT)
+
+ping:
+	python3 ping.py $(FWDPORT)
 
 qemu: check-qemu-version $K/kernel fs.img
 	$(QEMU) $(QEMUOPTS)

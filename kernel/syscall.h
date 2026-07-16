@@ -26,3 +26,4 @@
 #define SYS_pgaccess 25
 #define SYS_sigalarm 26
 #define SYS_sigreturn 27
+#define SYS_connect 28

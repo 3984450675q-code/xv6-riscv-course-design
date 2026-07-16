@@ -504,3 +504,24 @@ sys_pipe(void)
   }
   return 0;
 }
+
+uint64
+sys_connect(void)
+{
+  struct file *f;
+  uint32 raddr;
+  int fd, addr, lport, rport;
+
+  argint(0, &addr);
+  argint(1, &lport);
+  argint(2, &rport);
+  raddr = addr;
+
+  if (sockalloc(&f, raddr, lport, rport) < 0)
+    return -1;
+  if ((fd = fdalloc(f)) < 0) {
+    fileclose(f);
+    return -1;
+  }
+  return fd;
+}
