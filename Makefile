@@ -12,6 +12,7 @@ OBJS = \
   $K/uart.o \
   $K/kalloc.o \
   $K/spinlock.o \
+  $K/sprintf.o \
   $K/string.o \
   $K/main.o \
   $K/vm.o \
@@ -173,6 +174,8 @@ UPROGS=\
 	$U/_cowtest\
 	$U/_uthread\
 	$U/_nettests\
+	$U/_kalloctest\
+	$U/_bcachetest\
 	$U/_stressfs\
 	$U/_usertests\
 	$U/_grind\

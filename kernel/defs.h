@@ -120,6 +120,8 @@ void            initlock(struct spinlock*, char*);
 void            release(struct spinlock*);
 void            push_off(void);
 void            pop_off(void);
+void            freelock(struct spinlock*);
+int             statslock(char*, int);
 
 // sleeplock.c
 void            acquiresleep(struct sleeplock*);
@@ -208,6 +210,9 @@ void            sockclose(struct sock *);
 int             sockread(struct sock *, uint64, int);
 int             sockwrite(struct sock *, uint64, int);
 void            sockrecvudp(struct mbuf *, uint32, uint16, uint16);
+
+// sprintf.c
+int             snprintf(char*, int, char*, ...);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x) / sizeof((x)[0]))

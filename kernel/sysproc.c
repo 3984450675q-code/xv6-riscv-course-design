@@ -205,3 +205,29 @@ sys_sysinfo(void)
     return -1;
   return 0;
 }
+
+uint64
+sys_statistics(void)
+{
+  uint64 dst;
+  int sz;
+  char *buf;
+  int n;
+
+  argaddr(0, &dst);
+  argint(1, &sz);
+  if (sz < 2)
+    return -1;
+  if (sz > PGSIZE)
+    sz = PGSIZE;
+  if ((buf = kalloc()) == 0)
+    return -1;
+
+  n = statslock(buf, sz);
+  if (copyout(myproc()->pagetable, dst, buf, n) < 0) {
+    kfree(buf);
+    return -1;
+  }
+  kfree(buf);
+  return n;
+}

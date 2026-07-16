@@ -32,6 +32,7 @@ int pgaccess(void *, int, uint64 *);
 int sigalarm(int, void (*)());
 int sigreturn(void);
 int connect(uint32, uint16, uint16);
+int statistics(void *, int);
 
 // ulib.c
 int stat(const char *, struct stat *);
