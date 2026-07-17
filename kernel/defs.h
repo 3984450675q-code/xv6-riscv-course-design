@@ -109,6 +109,7 @@ int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 uint64          nproc(void);
+uint64          vmalimit(struct proc*);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
@@ -179,6 +180,9 @@ int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
 int             ismapped(pagetable_t, uint64);
 uint64          vmfault(pagetable_t, uint64, int);
+uint64          mmapfault(pagetable_t, uint64, int);
+int             vmaunmap(struct proc*, uint64, uint64);
+void            vmafree(struct proc*);
 
 // plic.c
 void            plicinit(void);

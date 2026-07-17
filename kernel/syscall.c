@@ -111,6 +111,8 @@ extern uint64 sys_sigreturn(void);
 extern uint64 sys_connect(void);
 extern uint64 sys_statistics(void);
 extern uint64 sys_symlink(void);
+extern uint64 sys_mmap(void);
+extern uint64 sys_munmap(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -146,6 +148,8 @@ static uint64 (*syscalls[])(void) = {
   [SYS_connect] sys_connect,
   [SYS_statistics] sys_statistics,
   [SYS_symlink] sys_symlink,
+  [SYS_mmap]    sys_mmap,
+  [SYS_munmap]  sys_munmap,
   // clang-format on
 };
 
@@ -181,6 +185,8 @@ static char *syscall_names[] = {
   [SYS_connect] "connect",
   [SYS_statistics] "statistics",
   [SYS_symlink] "symlink",
+  [SYS_mmap]    "mmap",
+  [SYS_munmap]  "munmap",
   // clang-format on
 };
 
@@ -195,7 +201,7 @@ syscall(void)
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
     p->trapframe->a0 = syscalls[num]();
-    if (p->trace_mask & (1 << num))
+    if (num < 32 && (p->trace_mask & (1U << num)))
       printk("%d: syscall %s -> %d\n", p->pid, syscall_names[num],
              (int)p->trapframe->a0);
   } else {

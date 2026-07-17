@@ -51,3 +51,5 @@ entry("sigreturn");
 entry("connect");
 entry("statistics");
 entry("symlink");
+entry("mmap");
+entry("munmap");

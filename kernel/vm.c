@@ -438,6 +438,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     if (n > len)
       n = len;
     memmove((void *)(pa0 + (dstva - va0)), src, n);
+    *pte |= PTE_D;
 
     len -= n;
     src += n;
@@ -487,8 +488,10 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   while (got_null == 0 && max > 0) {
     va0 = PGROUNDDOWN(srcva);
     pa0 = walkaddr(pagetable, va0);
-    if (pa0 == 0)
-      return -1;
+    if (pa0 == 0) {
+      if ((pa0 = vmfault(pagetable, va0, 1)) == 0)
+        return -1;
+    }
     n = PGSIZE - (srcva - va0);
     if (n > max)
       n = max;
@@ -527,7 +530,7 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
   uint64 mem;
   struct proc *p = myproc();
 
-  if (va >= p->sz)
+  if (va >= MAXVA)
     return 0;
   va = PGROUNDDOWN(va);
   if (ismapped(pagetable, va)) {
@@ -535,6 +538,8 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
       return cowfault(pagetable, va);
     return 0;
   }
+  if (va >= p->sz)
+    return mmapfault(pagetable, va, read);
   mem = (uint64)kalloc();
   if (mem == 0)
     return 0;

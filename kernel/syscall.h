@@ -29,3 +29,5 @@
 #define SYS_connect 28
 #define SYS_statistics 29
 #define SYS_symlink 30
+#define SYS_mmap 31
+#define SYS_munmap 32

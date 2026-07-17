@@ -178,6 +178,7 @@ UPROGS=\
 	$U/_bcachetest\
 	$U/_bigfile\
 	$U/_symlinktest\
+	$U/_mmaptest\
 	$U/_stressfs\
 	$U/_usertests\
 	$U/_grind\

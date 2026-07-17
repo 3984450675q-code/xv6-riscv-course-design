@@ -51,6 +51,197 @@ fdalloc(struct file *f)
   return -1;
 }
 
+static struct vma *
+findvma(struct proc *p, uint64 va)
+{
+  for (int i = 0; i < NVMA; i++) {
+    struct vma *v = &p->vmas[i];
+    if (v->used && va >= v->addr && va < v->addr + v->length)
+      return v;
+  }
+  return 0;
+}
+
+uint64
+sys_mmap(void)
+{
+  uint64 addr, length, offset, maplen, top, mapaddr;
+  int prot, flags;
+  struct file *f;
+  struct proc *p = myproc();
+  struct vma *slot = 0;
+
+  argaddr(0, &addr);
+  argaddr(1, &length);
+  argint(2, &prot);
+  argint(3, &flags);
+  argaddr(5, &offset);
+
+  if (argfd(4, 0, &f) < 0 || addr != 0 || length == 0 || offset != 0)
+    return -1;
+  if ((prot & ~(PROT_READ | PROT_WRITE)) != 0 ||
+      (prot & (PROT_READ | PROT_WRITE)) == 0)
+    return -1;
+  if (flags != MAP_SHARED && flags != MAP_PRIVATE)
+    return -1;
+  if (f->type != FD_INODE || !f->readable)
+    return -1;
+  if (flags == MAP_SHARED && (prot & PROT_WRITE) && !f->writable)
+    return -1;
+
+  for (int i = 0; i < NVMA; i++) {
+    if (!p->vmas[i].used && slot == 0)
+      slot = &p->vmas[i];
+  }
+  if (slot == 0)
+    return -1;
+
+  maplen = PGROUNDUP(length);
+  if (maplen < length)
+    return -1;
+  top = vmalimit(p);
+  if (top < maplen)
+    return -1;
+  mapaddr = top - maplen;
+  if (mapaddr < PGROUNDUP(p->sz))
+    return -1;
+
+  slot->used = 1;
+  slot->addr = mapaddr;
+  slot->length = maplen;
+  slot->prot = prot;
+  slot->flags = flags;
+  slot->offset = offset;
+  slot->file = filedup(f);
+  return mapaddr;
+}
+
+uint64
+mmapfault(pagetable_t pagetable, uint64 va, int read)
+{
+  int n, perm;
+  uint64 mem;
+  struct proc *p = myproc();
+  struct vma *v;
+
+  if (pagetable != p->pagetable || (v = findvma(p, va)) == 0)
+    return 0;
+  if ((read && !(v->prot & PROT_READ)) ||
+      (!read && !(v->prot & PROT_WRITE)))
+    return 0;
+
+  if ((mem = (uint64)kalloc()) == 0)
+    return 0;
+  memset((void *)mem, 0, PGSIZE);
+
+  ilock(v->file->ip);
+  n = readi(v->file->ip, 0, mem, v->offset + (va - v->addr), PGSIZE);
+  iunlock(v->file->ip);
+  if (n < 0) {
+    kfree((void *)mem);
+    return 0;
+  }
+
+  perm = PTE_U;
+  if (v->prot & PROT_READ)
+    perm |= PTE_R;
+  if (v->prot & PROT_WRITE)
+    perm |= PTE_R | PTE_W;
+  if (mappages(pagetable, va, PGSIZE, mem, perm) < 0) {
+    kfree((void *)mem);
+    return 0;
+  }
+  return mem;
+}
+
+static int
+vmawriteback(struct vma *v, uint64 va, pte_t *pte)
+{
+  int i = 0;
+  int max = ((MAXOPBLOCKS - 1 - 1 - 2) / 2) * BSIZE;
+  uint64 pa = PTE2PA(*pte);
+  uint64 off = v->offset + (va - v->addr);
+
+  while (i < PGSIZE) {
+    int n = PGSIZE - i;
+    if (n > max)
+      n = max;
+
+    begin_op();
+    ilock(v->file->ip);
+    int written = writei(v->file->ip, 0, pa + i, off + i, n);
+    iunlock(v->file->ip);
+    end_op();
+    if (written != n)
+      return -1;
+    i += written;
+  }
+  return 0;
+}
+
+int
+vmaunmap(struct proc *p, uint64 addr, uint64 length)
+{
+  uint64 start, end, vend;
+  int error = 0;
+  struct vma *v;
+
+  if (length == 0 || addr % PGSIZE != 0 || addr + length < addr)
+    return -1;
+  start = addr;
+  end = PGROUNDUP(addr + length);
+  if (end < addr || (v = findvma(p, start)) == 0)
+    return -1;
+  vend = v->addr + v->length;
+  if (end > vend || (start != v->addr && end != vend))
+    return -1;
+
+  for (uint64 va = start; va < end; va += PGSIZE) {
+    pte_t *pte = walk(p->pagetable, va, 0);
+    if (pte == 0 || (*pte & PTE_V) == 0)
+      continue;
+    if (v->flags == MAP_SHARED && (v->prot & PROT_WRITE) &&
+        (*pte & PTE_D) && vmawriteback(v, va, pte) < 0)
+      error = -1;
+    uvmunmap(p->pagetable, va, 1, 1);
+  }
+
+  if (start == v->addr && end == vend) {
+    fileclose(v->file);
+    memset(v, 0, sizeof(*v));
+  } else if (start == v->addr) {
+    uint64 removed = end - start;
+    v->addr = end;
+    v->length -= removed;
+    v->offset += removed;
+  } else {
+    v->length = start - v->addr;
+  }
+  return error;
+}
+
+uint64
+sys_munmap(void)
+{
+  uint64 addr, length;
+
+  argaddr(0, &addr);
+  argaddr(1, &length);
+  return vmaunmap(myproc(), addr, length);
+}
+
+void
+vmafree(struct proc *p)
+{
+  for (int i = 0; i < NVMA; i++) {
+    if (p->vmas[i].used) {
+      uint64 addr = p->vmas[i].addr;
+      uint64 length = p->vmas[i].length;
+      vmaunmap(p, addr, length);
+    }
+  }
+}
+
 uint64
 sys_dup(void)
 {

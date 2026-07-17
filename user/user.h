@@ -34,6 +34,8 @@ int sigreturn(void);
 int connect(uint32, uint16, uint16);
 int statistics(void *, int);
 int symlink(const char *, const char *);
+void *mmap(void *, uint64, int, int, int, uint64);
+int munmap(void *, uint64);
 
 // ulib.c
 int stat(const char *, struct stat *);

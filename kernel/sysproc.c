@@ -58,7 +58,7 @@ sys_sbrk(void)
     // memory, vmfault() will allocate it.
     if (addr + n < addr)
       return -1;
-    if (addr + n > USYSCALL)
+    if (addr + n > vmalimit(myproc()))
       return -1;
     myproc()->sz += n;
   }

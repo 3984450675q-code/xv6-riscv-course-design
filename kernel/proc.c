@@ -130,6 +130,7 @@ found:
   p->alarm_handler = 0;
   p->alarm_active = 0;
   memset(&p->alarm_trapframe, 0, sizeof(p->alarm_trapframe));
+  memset(p->vmas, 0, sizeof(p->vmas));
 
   // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
@@ -191,7 +192,20 @@ freeproc(struct proc *p)
   p->alarm_ticks = 0;
   p->alarm_handler = 0;
   p->alarm_active = 0;
+  memset(p->vmas, 0, sizeof(p->vmas));
   p->state = UNUSED;
+}
+
+// Lowest address the process heap may grow to without overlapping a VMA.
+uint64
+vmalimit(struct proc *p)
+{
+  uint64 limit = USYSCALL;
+
+  for (int i = 0; i < NVMA; i++)
+    if (p->vmas[i].used && p->vmas[i].addr < limit)
+      limit = p->vmas[i].addr;
+  return limit;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -274,7 +288,7 @@ growproc(int n)
 
   sz = p->sz;
   if (n > 0) {
-    if (sz + n > USYSCALL) {
+    if (sz + n > vmalimit(p)) {
       return -1;
     }
     if ((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
@@ -319,6 +333,12 @@ kfork(void)
   for (i = 0; i < NOFILE; i++)
     if (p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
+  for (i = 0; i < NVMA; i++) {
+    if (p->vmas[i].used) {
+      np->vmas[i] = p->vmas[i];
+      np->vmas[i].file = filedup(p->vmas[i].file);
+    }
+  }
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
@@ -364,6 +384,9 @@ kexit(int status)
 
   if (p == initproc)
     panic("init exiting");
+
+  // Write back shared mappings and release their pages and file references.
+  vmafree(p);
 
   // Close all open files.
   for (int fd = 0; fd < NOFILE; fd++) {
