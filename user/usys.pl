@@ -50,3 +50,4 @@ entry("sigalarm");
 entry("sigreturn");
 entry("connect");
 entry("statistics");
+entry("symlink");

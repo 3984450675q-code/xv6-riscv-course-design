@@ -176,6 +176,8 @@ UPROGS=\
 	$U/_nettests\
 	$U/_kalloctest\
 	$U/_bcachetest\
+	$U/_bigfile\
+	$U/_symlinktest\
 	$U/_stressfs\
 	$U/_usertests\
 	$U/_grind\

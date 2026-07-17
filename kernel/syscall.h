@@ -28,3 +28,4 @@
 #define SYS_sigreturn 27
 #define SYS_connect 28
 #define SYS_statistics 29
+#define SYS_symlink 30

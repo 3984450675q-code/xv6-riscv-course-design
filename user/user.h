@@ -33,6 +33,7 @@ int sigalarm(int, void (*)());
 int sigreturn(void);
 int connect(uint32, uint16, uint16);
 int statistics(void *, int);
+int symlink(const char *, const char *);
 
 // ulib.c
 int stat(const char *, struct stat *);
