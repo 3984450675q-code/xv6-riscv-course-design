@@ -1,5 +1,7 @@
 K=kernel
 U=user
+FSSIZE ?= 200000
+
 
 SERVERPORT = $(shell expr $$(id -u) % 5000 + 25099)
 FWDPORT = $(shell expr $$(id -u) % 5000 + 25999)
@@ -83,6 +85,7 @@ CFLAGS += -fno-builtin-memcpy -Wno-main
 CFLAGS += -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf
 CFLAGS += -I.
 CFLAGS += -DNET_TESTS_PORT=$(SERVERPORT)
+CFLAGS += -DFSSIZE=$(FSSIZE)
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
@@ -140,7 +143,7 @@ barrier: notxv6/barrier.c
 	gcc -o barrier -g -O2 notxv6/barrier.c -pthread
 
 mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
-	gcc -Wno-unknown-attributes -I. -o mkfs/mkfs mkfs/mkfs.c
+	gcc -Wno-unknown-attributes -I. -DFSSIZE=$(FSSIZE) -o mkfs/mkfs mkfs/mkfs.c
 
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
 # that disk image changes after first build are persistent until clean.  More

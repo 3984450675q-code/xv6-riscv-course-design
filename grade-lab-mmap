@@ -45,9 +45,10 @@ def test_mmaptest_fork_test():
 
 @test(19, "usertests")
 def test_usertests():
+    make("clean")
     r.run_qemu(shell_script([
         'usertests'
-    ]), timeout=420)
+    ]), make_args=["FSSIZE=80000"], timeout=1000)
     r.match('^ALL TESTS PASSED$')
 
 @test(1, "time")
