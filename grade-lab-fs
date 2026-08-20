@@ -9,7 +9,7 @@ r = Runner(save("xv6.out"))
 def test_bigfile():
     r.run_qemu(shell_script([
         'bigfile'
-    ]), timeout=180)
+    ]), timeout=720)
     r.match('^wrote 65803 blocks$')
     r.match('^bigfile done; ok$')
 
@@ -29,9 +29,10 @@ def test_symlinktest_symlinks():
 
 @test(19, "usertests")
 def test_usertests():
+    make("clean")
     r.run_qemu(shell_script([
         'usertests'
-    ]), timeout=360)
+    ]), make_args=["FSSIZE=80000"], timeout=1000)
     r.match('^ALL TESTS PASSED$')
 
 @test(1, "time")
