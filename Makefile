@@ -152,8 +152,8 @@ UPROGS=\
 	$U/_dorphan\
 	$U/_sync\
 
-fs.img: mkfs/mkfs README $(UPROGS)
-	mkfs/mkfs fs.img README $(UPROGS)
+fs.img: mkfs/mkfs README $U/xargstest.sh $(UPROGS)
+	mkfs/mkfs fs.img README $U/xargstest.sh $(UPROGS)
 
 -include kernel/*.d user/*.d
 

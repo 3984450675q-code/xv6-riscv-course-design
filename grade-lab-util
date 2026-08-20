@@ -25,7 +25,7 @@ def test_sleep():
     r.run_qemu(shell_script([
         'sleep 10',
         'echo FAIL'
-    ]), stop_breakpoint('sys_sleep'))
+    ]), stop_breakpoint('sys_pause'))
     r.match('\\$ sleep 10', no=['FAIL'])
 
 @test(20, "pingpong")
