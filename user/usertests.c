@@ -2703,7 +2703,8 @@ lazy_copy(char *s)
       printf("cannot open junk\n");
       exit(1);
     }
-    if (write(fd, (char *)bad[i], 512) >= 0) {
+    // Page Tables Lab intentionally maps USYSCALL user-readable.
+    if (bad[i] != USYSCALL && write(fd, (char *)bad[i], 512) >= 0) {
       printf("write succeeded\n");
       exit(1);
     }
@@ -2728,7 +2729,8 @@ lazy_sbrk(char *s)
     p = sbrklazy(0);
   }
 
-  int n = TRAPFRAME - PGSIZE - (uint64)p;
+  // Leave room for the Page Tables Lab's USYSCALL mapping.
+  int n = USYSCALL - PGSIZE - (uint64)p;
 
   char *p1 = sbrklazy(n);
   if (p1 < 0 || p1 != p) {
@@ -2737,8 +2739,8 @@ lazy_sbrk(char *s)
   }
 
   p = sbrk(PGSIZE);
-  if (p < 0 || (uint64)p != TRAPFRAME - PGSIZE) {
-    printf("sbrk(%d) returned %p, not expected TRAPFRAME-PGSIZE\n", PGSIZE, p);
+  if (p < 0 || (uint64)p != USYSCALL - PGSIZE) {
+    printf("sbrk(%d) returned %p, not expected USYSCALL-PGSIZE\n", PGSIZE, p);
     exit(1);
   }
 
